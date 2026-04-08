@@ -19,5 +19,5 @@ in
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = inputs: inputs.conflake ./. config.conflake;
+  outputs = inputs: inputs.conflake ./. (builtins.removeAttrs config [ "inputs" ]);
 }
