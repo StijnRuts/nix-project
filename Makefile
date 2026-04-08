@@ -4,7 +4,7 @@ genflake:
 	nix run .\#genflake flake.nix
 
 shell: genflake
-	nix develop
+	nix-your-shell zsh nix develop
 
 update: genflake
 	nix flake update
