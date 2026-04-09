@@ -18,5 +18,5 @@ in
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = inputs: inputs.conflake ./. (config.outputs inputs);
+  outputs = inputs: inputs.conflake ./. (params: config.outputs (inputs // params));
 }
