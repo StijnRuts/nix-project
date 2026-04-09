@@ -1,4 +1,3 @@
-(import ./project.nix) [
-  ./formatters.nix
+(import ./project) [
   ./example.nix
 ]

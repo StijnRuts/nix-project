@@ -9,7 +9,7 @@ in
 parts:
 let
   resolvePaths = builtins.map (x: if builtins.isPath x then import x else x);
-  config = recursive.mergeList (resolvePaths parts);
+  config = recursive.mergeList (resolvePaths (parts ++ (import ./modules.nix)));
 in
 {
   inputs = config.inputs // {
