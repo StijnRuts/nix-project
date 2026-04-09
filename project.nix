@@ -1,16 +1,15 @@
 let
-  lib = import "${
-    fetchTarball {
-      url = "https://github.com/NixOS/nixpkgs/archive/nixos-25.11.tar.gz";
-      sha256 = "sha256:1vs1g86i75rgpsvs7kyqfv22j6x3sg3daf4cv6ws3d0ghkb2ggpz";
+  recursive = import (
+    builtins.fetchurl {
+      url = "https://raw.githubusercontent.com/StijnRuts/nix-recursive-merge/4a3077519c121a9b67ec5e6141c488564e8a3041/recursive.nix";
+      sha256 = "sha256:1pmp8vz2qsxnm4dbd34kahpgrdmfp1r2v03r77p0gw1k1764nppz";
     }
-  }/lib";
+  );
 in
 parts:
 let
   resolvePaths = builtins.map (x: if builtins.isPath x then import x else x);
-  mergeList = sets: lib.foldl' lib.recursiveUpdate { } sets;
-  config = mergeList (resolvePaths parts);
+  config = recursive.mergeList (resolvePaths parts);
 in
 {
   inputs = config.inputs // {
@@ -19,5 +18,5 @@ in
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = inputs: inputs.conflake ./. (builtins.removeAttrs config [ "inputs" ]);
+  outputs = inputs: inputs.conflake ./. (config.outputs inputs);
 }

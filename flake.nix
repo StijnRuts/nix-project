@@ -10,6 +10,10 @@
     };
     flakegen.url = "github:jorsn/flakegen";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    treefmt-nix = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:numtide/treefmt-nix";
+    };
   };
   outputs = inputs: inputs.flakegen ./flake.in.nix inputs;
 }
