@@ -7,9 +7,27 @@ let
   );
 in
 parts:
+with builtins;
 let
-  resolvePaths = builtins.map (x: if builtins.isPath x then import x else x);
-  config = recursive.mergeList (resolvePaths (parts ++ (import ./modules.nix)));
+  config = recursive.mergeList (map reifyModule (parts ++ (import ./modules.nix)));
+
+  reifyModule = x: if isPath x then reifyModule (import x) else reifyOutputs x;
+
+  reifyOutputs =
+    x:
+    if hasAttr "outputs" x then
+      x // { outputs = reifyConfig x.outputs; }
+    else
+      { outputs = reifyConfig x; };
+
+  reifyConfig =
+    x:
+    if isFunction x then
+      i: reifyConfig (x i)
+    else if hasAttr "config" x then
+      x
+    else
+      { config = x; };
 in
 {
   inputs = config.inputs // {
