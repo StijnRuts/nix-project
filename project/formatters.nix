@@ -16,13 +16,12 @@
       options.project.formatters = lib.mkOption {
         type = lib.types.anything;
         default = _: { };
-        description = "A treefmt configuration compatible with treefmt-nix.";
       };
 
       config = {
         presets.formatters.enable = false;
 
-        project.formatters = _: {
+        project.formatters = {
           projectRootFile = "flake.nix";
           programs = {
             nixfmt.enable = true;

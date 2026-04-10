@@ -9,7 +9,7 @@ in
 parts:
 with builtins;
 let
-  config = recursive.mergeList (map reifyModule (parts ++ (import ./modules.nix)));
+  config = recursive.mergeList (map reifyModule ((import ./modules.nix) ++ parts));
 
   reifyModule = x: if isPath x then reifyModule (import x) else reifyOutputs x;
 

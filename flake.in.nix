@@ -1,6 +1,6 @@
 (import ./project) [
   {
-    project.formatters = _: {
+    project.formatters = {
       programs = {
         prettier.enable = true;
       };

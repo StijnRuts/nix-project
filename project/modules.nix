@@ -1,3 +1,4 @@
 [
   ./formatters.nix
+  ./shells.nix
 ]
