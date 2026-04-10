@@ -6,11 +6,12 @@
   outputs = {
     project.shell = {
       packages = { pkgs, ... }: [ pkgs.hello ];
-      scripts =
-        { pkgs, ... }:
-        {
-          lorem = "echo ipsum";
+      scripts = _: { lorem = "echo ipsum"; };
+      processes = _: {
+        myprocesses = {
+          yes.command = "yes";
         };
+      };
     };
   };
 }

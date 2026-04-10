@@ -6,11 +6,30 @@ let
     }
   );
 
+  chain = fs: arg: builtins.foldl' (x: f: f x) arg fs;
+
   moveAttr =
     fromKey: toKey: f: attrs:
     recursive.merge (builtins.removeAttrs attrs [ fromKey ]) { ${toKey} = f attrs.${fromKey}; };
 
-  reifyShellConfig = scriptsToPackages;
+  reifyShellConfig = chain [
+    processesToScripts
+    scriptsToPackages
+  ];
+
+  processesToScripts = moveAttr "processes" "scripts" (
+    processes: args:
+    builtins.mapAttrs (
+      _: config:
+      "${args.pkgs.process-compose}/bin/process-compose --no-server -f ${
+        args.pkgs.writers.writeYAML "process-compose.yaml" {
+          version = "0.5";
+          is_strict = true;
+          processes = config;
+        }
+      }"
+    ) (processes args)
+  );
 
   scriptsToPackages = moveAttr "scripts" "packages" (
     scripts: args: builtins.attrValues (builtins.mapAttrs args.pkgs.writeShellScriptBin (scripts args))
