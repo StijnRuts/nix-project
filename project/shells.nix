@@ -12,7 +12,7 @@ let
     fromKey: toKey: f: attrs:
     recursive.merge (builtins.removeAttrs attrs [ fromKey ]) { ${toKey} = f attrs.${fromKey}; };
 
-  reifyShellConfig = chain [
+  reifyShell = chain [
     processesToScripts
     scriptsToPackages
   ];
@@ -54,7 +54,7 @@ in
         project.shells.default = config.project.shell;
 
         devShells = lib.mkMerge [
-          (builtins.mapAttrs (_: reifyShellConfig) config.project.shells)
+          (builtins.mapAttrs (_: reifyShell) config.project.shells)
         ];
       };
     };
