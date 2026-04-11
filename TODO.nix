@@ -13,143 +13,187 @@ let
     }
   );
 
-  typeOf' = x: let t = builtins.typeOf x; in
-  if (t == "lambda") then "function"
-  else if (t == "set") then "attrs"
-  else t;
+  typeOf' =
+    x:
+    let
+      t = builtins.typeOf x;
+    in
+    if (t == "lambda") then
+      "function"
+    else if (t == "set") then
+      "attrs"
+    else
+      t;
 
-in with builtins lib;
+in
+with builtins lib;
 
 rec {
   # TODO: add debug path trace info, like in recursive
-  transform = f: x:
-    let result =
-      if isFunction f then
-        f x
-      else if isList f then
-        foldl' (x': f': transform f' x') x f
-      else if isAttrs f then
-        if isAttr x then
-          let unsupported = subtractLists (builtins.attrNames x) (builtins. attrNames f);
-          in if unsupported == [] || hasAttr "fallback" f then
-            foldl' (a: k: a // { ${k} = (f.${k} or f.fallback) x.${k}; }) {} (attrNames x)
-          else
-            throw "No function found to transform ${unsupported}"
+  transform =
+    f: x:
+    if isFunction f then
+      f x
+    else if isList f then
+      foldl' (x': f': transform f' x') x f
+    else if isAttrs f then
+      if isAttr x then
+        let
+          unsupported = subtractLists (builtins.attrNames x) (builtins.attrNames f);
+        in
+        if unsupported == [ ] || hasAttr "fallback" f then
+          foldl' (a: k: a // { ${k} = (f.${k} or f.fallback) x.${k}; }) { } (attrNames x)
         else
-          throw "Transform got mismatched arguments of types ${typeOf' f} and ${typeOf' x}"
+          throw "No function found to transform ${unsupported}"
       else
-        throw "Transform got unsupported argument of type ${typeOf' f}";
-    in
-    transform { # too much recursion
-      match = transform f;
-      rest = keep;
-    } (match.attrsKey "recurse" result);
-
-  keep = x: x;
-  discard = _: null;
-  attrsSingleton = k: x: { ${k} = x; };
-  intermediate = attrsSingleton "intermediate";
+        throw "Transform got mismatched arguments of types ${typeOf' f} and ${typeOf' x}"
+    else
+      throw "Transform got unsupported argument of type ${typeOf' f}";
 
   inside = {
-    path = f: x: if isPath x then transform f (import x) 
-      else throw "Expected path, got ${typeOf' x}";
-    function = f: x: if isFunction x then arg: transform f (x arg)
-      else throw "Expected function, got ${typeOf' x}";
-    list = f: x: if isList x then map (transform f) x
-      else throw "Expected list, got ${typeOf' x}";
-    attrs = f: x: if isAttrs x then mapAttrs (_: transform f) x
-      else throw "Expected attrs, got ${typeOf' x}";
-    match = f: x: if isAttrs x ;
+    path = f: x: if isPath x then transform f (import x) else throw "Expected path, got ${typeOf' x}";
+    function =
+      f: x:
+      if isFunction x then arg: transform f (x arg) else throw "Expected function, got ${typeOf' x}";
+    list = f: x: if isList x then map (transform f) x else throw "Expected list, got ${typeOf' x}";
+    attrs =
+      f: x: if isAttrs x then mapAttrs (_: transform f) x else throw "Expected attrs, got ${typeOf' x}";
+    attrsKey =
+      k: f: x:
+      if isAttrs x then
+        if hasKey k then x // { ${k} = transform f x.${k}; } else x
+      else
+        throw "Expected attrs, got ${typeOf' x}";
   };
 
   match = {
     type = x: { ${typeOf' x} = x; };
-    attrsKey = k: x:
-      let rest = removeAttrs x [k];
-      in if isAttrs x && hasAttr k x then
-        if rest != {} then
-          { match = x.${k}; inherit rest; }
+    attrsKey =
+      k: x:
+      let
+        rest = removeAttrs x [ k ];
+      in
+      if isAttrs x && hasAttr k x then
+        if rest != { } then
+          {
+            match = x.${k};
+            inherit rest;
+          }
         else
-          { match = x.${k}; rest = null; }
+          {
+            match = x.${k};
+            rest = null;
+          }
       else
         { nomatch = x; };
-    attrsSingleton = x:
+    attrsSingleton =
+      x:
       if isAttrs x && length (attrNames x) == 1 then
-        { match = (attrValues x)[0]; }
+        { match = (attrValues x) [ 0 ]; }
       else
         { nomatch = x; };
-    listSingleton = x:
-      if isList x && length x == 1 then
-        { match = x[0]; }
-      else
-        { nomatch = x; };
+    listSingleton = x: if isList x && length x == 1 then { match = x [ 0 ]; } else { nomatch = x; };
   };
 
-  withDefault = default: value:
-    if isAttrs value && hasAttr "match" value then
-      merge value.match (value.rest or null)
-    else
-      default;
+  keep = x: x;
+  discard = _: null;
 
   enshure = {
-    function = arg: transform { function = keep; fallback = x: _: x; } (match.type arg);
-    list = arg: transform { list = keep; fallback = x: [x]; } (match.type arg);
-    attrsKey = k: arg: transform [merge.attrs {
-      match = attrsSingleton k;
-      rest = keep;
-      nomatch = attrsSingleton k;
-    }] (match.attrsKey k arg);
+    function =
+      arg:
+      transform {
+        function = keep;
+        fallback = x: _: x;
+      } (match.type arg);
+    list =
+      arg:
+      transform {
+        list = keep;
+        fallback = x: [ x ];
+      } (match.type arg);
+    attrsKey =
+      k: arg:
+      transform [
+        merge.attrs
+        {
+          match = x: { ${k} = x; };
+          rest = keep;
+          nomatch = x: { ${k} = x; };
+        }
+      ] (match.attrsKey k arg);
   };
 
-  reifyConfig = [
-    {
-      path = inside.path intermediate;
-      list = merge.list (inside.list intermediate); 
-      attrs = keep;
-    }
-    (enshure.attrsKey "outputs")
-    (inside.attrsKey "outputs" [
-      enshure.function
-      (inside.function [
-        (transform {
-          match = x: { shells.default = x; };
-          rest = keep;
-          nomatch = keep;
-        } (match.attrsKey "shell"))
-        (withDefault {} (match.attrsKey "shells"))
-        inside.match (match.attrsKey "shells")
-          inside.attrs
-        # containers
-        # ...
+  project = {
+    modules = [
+      match.type
+      {
+        path = inside.path project.module;
+        list = merge.list (inside.list project.outputs);
+        attrs = project.outputs;
+      }
+    ];
+    outputs = [
+      (enshure.attrsKey "outputs")
+      (inside.attrsKey "outputs" [
+        enshure.function
+        (inside.function [
+          project.containers
+          project.shell
+          project.shells
+          project.configs
+        ])
       ])
-    ])
-  ];
+    ];
+    shell = [
+      (match.attrsKey "shell")
+      {
+        match = x: { shells.default = x; };
+        rest = keep;
+        nomatch = keep;
+      }
+      merge.attrs
+    ];
+    shells = inside.attrsKey "shells" (
+      inside.attrs [
+        project.processes
+        project.scripts
+      ]
+    );
+    processes = [ ];
+    scripts = [ ];
+    configs = [ ];
+    containers = [ ];
+  };
 
-
-    project = {
-      shell = {
-        packages = { pkgs, ... }: [ pkgs.hello ];
-        scripts = _: { lorem = "echo ipsum"; };
-        processes = _: {
-          dev = {
-            server.command = "while true; do echo running...; sleep 2; done";
-          };
+  example = {
+    shell = {
+      packages = { pkgs, ... }: [ pkgs.hello ];
+      scripts = _: { lorem = "echo ipsum"; };
+      processes = _: {
+        dev = {
+          server.command = "while true; do echo running...; sleep 2; done";
         };
       };
-      configs.dev = {
-        system.arch = "x86_64-linux";
-        system.stateVersion = "25.11";
-      };
-      containers.dev = {
-        shell = "default";
-        processes = "dev";
-        flake = "dev";
-      };
+    };
+    configs.dev = {
+      system.arch = "x86_64-linux";
+      system.stateVersion = "25.11";
+    };
+    containers.dev = {
+      shell = "default";
+      processes = "dev";
+      flake = "dev";
+    };
     containers.opmaatdev = {
       config = "dev";
       hostIp = "";
       clientIp = "";
-      ftpMounts = [{hostPath; clientPath;}];
+      ftpMounts = [
+        {
+          hostPath = null;
+          clientPath = null;
+        }
+      ];
     };
     servers.prod = {
       # script provision:prod deploy:prod
