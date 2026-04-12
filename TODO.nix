@@ -99,28 +99,33 @@ rec {
   discard = _: null;
 
   enshure = {
-    function =
-      arg:
-      transform {
+    function = transform [
+      match.type
+      {
         function = keep;
         fallback = x: _: x;
-      } (match.type arg);
-    list =
-      arg:
-      transform {
+      }
+      merge.attrs
+    ];
+    list = transform [
+      match.type
+      {
         list = keep;
         fallback = x: [ x ];
-      } (match.type arg);
+      }
+      merge.attrs
+    ];
     attrsKey =
-      k: arg:
+      k:
       transform [
-        merge.attrs
+        (match.attrsKey k)
         {
           match = x: { ${k} = x; };
           rest = keep;
           nomatch = x: { ${k} = x; };
         }
-      ] (match.attrsKey k arg);
+        merge.attrs
+      ];
   };
 
   project = {
@@ -137,6 +142,7 @@ rec {
       (inside.attrsKey "outputs" [
         enshure.function
         (inside.function [
+          # with inputs
           project.containers
           project.shell
           project.shells
@@ -159,11 +165,148 @@ rec {
         project.scripts
       ]
     );
-    processes = [ ];
     scripts = [ ];
+    processes = [
+      (match.attrsKey "processes")
+      {
+        match = inside.function;
+        rest = keep;
+        nomatch = keep;
+      }
+    ];
     configs = [ ];
     containers = [ ];
   };
+
+  optics = {
+    # string to query, list to alternative
+    from = [
+      "foo ?bar {key} args1: ?args2: [] ?[] =value"
+      "/path1.bla ?/path2 =value2"
+      "(foo.bar,lorem.ipsum)" # this makes it harder, just use list
+    ];
+    # filter by returning null
+    # duplicate by returning list
+    # inject systems
+    change = { key, ... }@attrs: [(attrs // { key = uppercase key; extra = foobar; })];
+    # string to query, list to alternative
+    to = [
+      ".foo .bar .{key} .args2: .args1: .[] .<system> =value"
+      ""
+    ];
+  };
+
+  from = {
+    value = name: callback: x: callback { ${name} = x; } null;
+    key = k: callback: x: if (isAttr x && hasAttr k x) then callback {} x.${k} else callback {} null;
+    anyKey = name: callback: x: mapAttr (k: v: callback { ${name} = k; } v );
+    list = callback: x: map (x': callback {} x') x;
+    function = callback: x: args: 
+    path = ;
+    alternative = [matchers]: ;
+    sequence = [matchers]: ;
+    optional = matcher: ;
+    query = string: ;
+  };
+
+  to = {
+    value = name: callback: attrs: callback attrs.name;
+    key = k: ;
+    list = ;
+    function = ;
+    sequence = [writers]: ;
+    alternative = [writers]: ;
+    query = string: ;
+  };
+
+  example_result = {
+    devShells.${system}.default = pkgs.mkShell (import ./nix/devshell.nix { inherit pkgs; });
+    nixosConfigurations = {
+      dev = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          {
+            networking.hostName = "opmaat-dev";
+            system.stateVersion = "25.11";
+          }
+        ];
+      };
+      staging = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+          {
+            networking.hostName = "opmaat-staging";
+            system.stateVersion = "25.11";
+          }
+        ];
+      };
+    };
+  };
+
+  # is transform
+  apply = f: x:
+    if isFunction f then
+      f x
+    else if isList f then
+      builtins.foldl' (flip apply) x f
+    else if isAttr f then
+      # ???
+    else
+      throw;
+
+  loadModules = f: x:
+    if isPath x then
+      loadModules f (import x)
+    else if isList x then
+      mergeList (map (loadModules f) x)
+    else if isAttrs x then
+      f x
+    else
+      throw
+
+  # reify.modules.main
+  # reify.modules.shells.main
+  # reify.modules.shells.processes
+  # reify.modules.shells.scripts
+  # reify.modules.shells.packages
+  (map.key "output" create.key # or missingKey = throw ;;; create.null = _ ;;; create.key val: val; })
+    (map.fn createDefaultFn systemInputs: inputs: [
+      (move.key "shells" "shells.default" emptyAttr)
+      # map.key = move.key k k
+      (map.key "shells" emptyAttr
+        (map.attrs (in_.fn pkgs
+          (move.key "processes" "scripts" (map.fn pkgs: transformProcesses pkgs)
+          (move.key "scripts" "packages" (map.fn pkgs: transformScripts pkgs))
+          packages = config.packages pkgs;
+        )
+       )
+      (move.key "shells" "devShells"
+        (wrap.systems (system: pkgs.mkShell system (systemInputs))
+      )
+      (map.key "configs" defaultKey
+        (map.attrs [
+          (move.key "*" "modules" id)
+          (move.key "modules.system.arch" "system" throwMissing)
+          (map.key "modules" mkList)
+        ])
+      )
+      nixosConfigurations.key.(nixpkgs.lib.nixosSystem)
+    ])
+
+  (inKey "inputs.global" (default {}))
+
+  (inKey "inputs.system" [
+    default (inputs: _: inputs) # inputs: system: { pkgs };
+  ]);
+
+  (conf: {
+    inputs = conf.inputs;
+    outputs = conf.outputs conf.systemInputs;
+  })
+)
+
+  
+    
 
   example = {
     shell = {
@@ -174,6 +317,7 @@ rec {
           server.command = "while true; do echo running...; sleep 2; done";
         };
       };
+      shellHook = "hello";
     };
     configs.dev = {
       system.arch = "x86_64-linux";
