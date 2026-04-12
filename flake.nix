@@ -5,7 +5,6 @@
 {
   inputs = {
     flakegen.url = "github:jorsn/flakegen";
-    nixlib.url = "github:nix-community/nixpkgs.lib";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
   };
   outputs = inputs: inputs.flakegen ./flake.in.nix inputs;
