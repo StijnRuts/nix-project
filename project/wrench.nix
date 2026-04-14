@@ -49,35 +49,35 @@ let
     x;
 in
 rec {
-  keep = v: v;
-  discard = _: null;
-  unsupported = v: throw "Unsupported ${typeOf v} with value ${toString v}";
-
   apply = over.type {
-    function = keep;
-    null = _: keep;
+    function = f: f;
+    null = _: v: v;
     path = f: apply (import f);
-    list = fs: arg: foldl' (x: f: apply f x) arg fs;
+    list = fs: init: foldl' (v: f: apply f v) init fs;
+    attrs = v: apply (v.__functor v);
   };
 
+  apply2 = f: arg: apply (apply f arg);
+
   over = {
-    type = f: v: (f.${typeOf v} or f._fallback or unsupported) v;
+    type = f: v: (f.${typeOf v} or f._fallback or value.unsupported) v;
     nonNull = f: v: if v == null then null else apply f v;
     list = f: map (apply f);
     attrs = f: mapAttrs (_: apply f);
     path = f: v: apply f (import v);
     function =
       f: v: args:
-      v (apply f args);
+      v (apply (f args) args);
   };
 
   to = {
     list = over.type {
-      list = keep;
+      list = value.keep;
+      null = _: [ ];
       _fallback = v: [ v ];
     };
     function = over.type {
-      function = keep;
+      function = value.keep;
       _fallback = v: _: v;
     };
   };
@@ -108,7 +108,7 @@ rec {
                   next = attrs.key.extract k prev.rest;
                 in
                 {
-                  value = merge prev.value (apply f.${k} next.value);
+                  value = merge prev.value (apply (f.${k} k) next.value);
                   inherit (next) rest;
                 }
               )
@@ -168,8 +168,22 @@ rec {
         rest = remove p x;
       };
       singleton = p: v: set p v { };
-      fold = todo;
+      fold = throw "todo";
     };
+  };
+
+  value = {
+    keep = {
+      __functor = _: v: v;
+      key = k: over.nonNull (attrs.key.singleton k);
+      path = p: over.nonNull (attrs.path.singleton p);
+    };
+    to = {
+      key = k: _: value.keep.key k;
+      path = p: _: value.keep.path p;
+    };
+    discard = _: null;
+    unsupported = v: throw "Unsupported ${typeOf v} with value ${toString v}";
   };
 
   merge = {
