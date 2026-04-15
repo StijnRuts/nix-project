@@ -1,5 +1,10 @@
 with builtins;
-with (import ./wrench.nix);
+with import (
+  builtins.fetchurl {
+    url = "https://raw.githubusercontent.com/StijnRuts/nix-wrench/7a664ffc4f9dd25bfcde718f9285242c8bf52e81/wrench.nix";
+    sha256 = "sha256:1sgn66arsy0hpqzdrnv8j5p9cgwcqrgh9zx007qxi5v2x4x66kzl";
+  }
+);
 rec {
   __functor =
     _:
