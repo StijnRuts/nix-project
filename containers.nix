@@ -31,16 +31,21 @@ in
             command = pkgs.writeShellApplication {
               name = "${name}-start";
               text = ''
-                sudo nixos-container destroy ${name}
-                sudo nixos-container create ${name} --flake .#${flake} --host-address ${hostIp} --local-address ${localIp}
+                if sudo nixos-container status ${name} >/dev/null 2>&1; then
+                  echo "Updating container ${name}"
+                  sudo nixos-container update ${name} --flake .#${flake}
+                else
+                  echo "Creating container ${name}"
+                  sudo nixos-container create ${name} --flake .#${flake} --host-address ${hostIp} --local-address ${localIp}
+                fi
+
                 sudo nixos-container start ${name}
-                echo "Container is $(sudo nixos-container status ${name})"
+                echo "Container ${name} is $(sudo nixos-container status ${name})"
               '';
             };
             is_daemon = true;
             readiness_probe.exec.command = "[ $(sudo nixos-container status ${name}) = 'up' ]";
-            liveness_probe.exec.command = "[ $(sudo nixos-container status ${name}) = 'up' ]";
-            shutdown.command = "sudo nixos-container stop ${name} && sudo nixos-container destroy ${name}";
+            shutdown.command = "sudo nixos-container stop ${name}";
           };
 
           update = {
