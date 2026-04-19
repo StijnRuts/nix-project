@@ -11,6 +11,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
+    easy-hosts.url = "github:tgirlcloud/easy-hosts";
   };
 
   outputs =
@@ -21,8 +22,10 @@
         inputs.treefmt-nix.flakeModule
         inputs.devshell.flakeModule
         inputs.process-compose-flake.flakeModule
+        inputs.easy-hosts.flakeModule
         ./formatters.nix
         ./devshell.nix
+        ./devcontainer.nix
       ];
     };
 }
