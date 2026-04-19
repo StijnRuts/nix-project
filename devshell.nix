@@ -29,6 +29,7 @@
       };
 
       process-compose.dev = {
+        settings.is_strict = true;
         cli.options.no-server = true;
         settings = {
           processes = {

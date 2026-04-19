@@ -25,6 +25,7 @@
         inputs.easy-hosts.flakeModule
         ./formatters.nix
         ./devshell.nix
+        ./containers.nix
         ./devcontainer.nix
       ];
     };
