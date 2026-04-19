@@ -10,9 +10,7 @@
       devshells.default = {
         devshell.startup.menu.text = "menu";
 
-        packages = with pkgs; [
-          hello
-        ];
+        packages = with pkgs; [ hello ];
 
         commands = [
           {
