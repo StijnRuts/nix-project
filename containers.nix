@@ -15,7 +15,7 @@ let
 
   name = containername "myproject" "development";
   flake = "dev";
-  hostPath = ".";
+  hostPath = "./frontend/src/";
   containerPath = "/srv/frontend";
 in
 { lib, ... }:

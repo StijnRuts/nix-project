@@ -7,5 +7,7 @@
     deadnix.enable = true;
     beautysh.enable = true;
     shellcheck.enable = true;
+    shellcheck.excludes = [ ".envrc" ];
+    prettier.enable = true;
   };
 }

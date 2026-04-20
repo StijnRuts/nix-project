@@ -6,7 +6,21 @@
           enable = true;
           virtualHosts.myproject = {
             extraConfig = ''
-              respond "Hello, Caddy!"
+              encode
+              handle_path /api/* {
+                respond "This is the API"
+                # reverse_proxy localhost:9000
+              }
+              handle {
+                root /srv/frontend
+                file_server
+              }
+              handle_errors {
+                root /srv/frontend
+                rewrite /error.html
+                templates
+                file_server
+              }
             '';
           };
         };
@@ -26,9 +40,7 @@
 
           services.caddy = {
             virtualHosts.myproject = {
-              serverAliases = [
-                "myproject-dev.local"
-              ];
+              serverAliases = [ "myproject-dev.local" ];
             };
           };
         }
@@ -53,8 +65,6 @@
           };
         };
       in
-      tag: {
-        modules = [ tags.${tag} ];
-      };
+      tag: { modules = [ tags.${tag} ]; };
   };
 }
