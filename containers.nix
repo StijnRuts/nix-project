@@ -15,52 +15,54 @@ let
 
   name = containername "myproject" "development";
   flake = "dev";
-  hostIp = "10.233.1.1";
-  localIp = "10.233.1.2";
+  hostPath = ".";
+  containerPath = "/srv/frontend";
 in
 { lib, ... }:
 {
   perSystem =
     { pkgs, ... }:
+    let
+      container = pkgs.writeShellApplication {
+        name = "container";
+        runtimeInputs = [
+          pkgs.nixos-container
+          pkgs.watchexec
+        ];
+        text = builtins.readFile ./container.sh;
+      };
+      containerBin = lib.getExe container;
+    in
     {
+      packages.container = container;
+      devshells.default.packages = [ container ];
+
       process-compose.dev = {
         settings.processes = {
           start = {
             namespace = name;
             description = "Create and start container ${name}";
-            command = pkgs.writeShellApplication {
-              name = "${name}-start";
-              text = ''
-                if sudo nixos-container status ${name} >/dev/null 2>&1; then
-                  echo "Updating container ${name}"
-                  sudo nixos-container update ${name} --flake .#${flake}
-                else
-                  echo "Creating container ${name}"
-                  sudo nixos-container create ${name} --flake .#${flake} --host-address ${hostIp} --local-address ${localIp}
-                fi
-
-                sudo nixos-container start ${name}
-                echo "Container ${name} is $(sudo nixos-container status ${name})"
-              '';
-            };
+            command = builtins.concatStringsSep " && " [
+              "${containerBin} build ${name} ${flake}"
+              "${containerBin} mount ${name} ${hostPath} ${containerPath}"
+              "${containerBin} up ${name}"
+            ];
             is_daemon = true;
-            readiness_probe.exec.command = "[ $(sudo nixos-container status ${name}) = 'up' ]";
-            shutdown.command = "sudo nixos-container stop ${name}";
+            readiness_probe.exec.command = "${containerBin} status ${name}";
+            shutdown.command = "${containerBin} down ${name}";
           };
 
           update = {
             namespace = name;
             description = "Update ${name} on *.nix changes";
-            command =
-              "echo 'Watching for changes to the container configuration...'"
-              + " && ${lib.getExe pkgs.watchexec} --postpone --exts nix -- sudo nixos-container update ${name} --flake .#${flake}";
+            command = "${containerBin} watch ${name} ${flake}";
             depends_on.start.condition = "process_healthy";
           };
 
           shell = {
             namespace = name;
             description = "Root shell into the container";
-            command = "sudo nixos-container root-login ${name}";
+            command = "${containerBin} shell ${name}";
             is_foreground = true;
             depends_on.start.condition = "process_healthy";
           };
