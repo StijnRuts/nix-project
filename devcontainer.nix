@@ -1,51 +1,86 @@
+{ self, ... }:
 {
   easy-hosts = {
     shared.modules = [
-      {
-        services.caddy = {
-          enable = true;
-          virtualHosts.myproject = {
-            extraConfig = ''
-              encode
-              handle_path /api/* {
-                respond "This is the API"
-                # reverse_proxy localhost:9000
-              }
-              handle {
-                root /srv/frontend
-                file_server
-              }
-              handle_errors {
-                root /srv/frontend
-                rewrite /error.html
-                templates
-                file_server
-              }
-            '';
-          };
-        };
+      (
+        { pkgs, ... }:
+        {
+          services.caddy = {
+            enable = true;
+            virtualHosts.myproject = {
+              extraConfig = ''
+                encode
 
-        networking.firewall.allowedTCPPorts = [
-          80
-          443
-        ];
-      }
+                handle {
+                  reverse_proxy localhost:8001
+                }
+
+                # @frontend path /frontend /frontend/*
+                # handle_path @frontend {
+                #   root ${self.packages.${pkgs.stdenv.hostPlatform.system}.frontend}
+                #   file_server
+                # }
+
+                # handle_errors {
+                #   root ${self.packages.${pkgs.stdenv.hostPlatform.system}.frontend}
+                #   rewrite /error.html
+                #   templates
+                #   file_server
+                # }
+              '';
+            };
+          };
+
+          networking.firewall.allowedTCPPorts = [
+            80
+            443
+          ];
+        }
+      )
     ];
 
     hosts.dev = {
       modules = [
-        {
-          networking.hostName = "myproject-dev";
-          system.stateVersion = "25.11";
+        (
+          { pkgs, ... }:
+          {
+            networking.hostName = "myproject-dev";
+            system.stateVersion = "25.11";
 
-          services.caddy = {
-            virtualHosts.myproject = {
-              serverAliases = [ "myproject-dev.local" ];
+            services.caddy = {
+              virtualHosts.myproject = {
+                serverAliases = [ "myproject-dev.local" ];
+              };
             };
-          };
-        }
+
+            environment.systemPackages = [
+              pkgs.nodejs_24
+            ];
+
+            users.users.dev = {
+              isNormalUser = true;
+              uid = 2000;
+              group = "users";
+            };
+
+            systemd.services.frontend-dev = {
+              enable = true;
+              after = [ "network.target" ];
+              wantedBy = [ "default.target" ];
+              serviceConfig = {
+                Type = "simple";
+                User = "dev";
+                Group = "users";
+                ExecStart = "${pkgs.nodejs_24}/bin/npm run dev";
+                WorkingDirectory = "/srv/frontend";
+                Environment = "PATH=/run/current-system/sw/bin";
+              };
+            };
+          }
+        )
       ];
       tags = [ "container" ];
+      # preproduction, release
     };
 
     perTag =

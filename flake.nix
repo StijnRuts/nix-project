@@ -27,6 +27,7 @@
         ./devshell.nix
         ./containers.nix
         ./devcontainer.nix
+        ./frontend
       ];
     };
 }
