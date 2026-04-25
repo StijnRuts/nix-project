@@ -1,0 +1,14 @@
+{% set menu = [
+  { "id": "home", "label": "Home", "url": "/" },
+  { "id": "about", "label": "About", "url": "/about" }
+] %}
+<nav>
+  <ul>
+    {% for item in menu %}
+      <li class="{% if item.id == activeId %}active{% endif %}">
+        <a href="{{ item.url }}">{{ item.label }}</a>
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+

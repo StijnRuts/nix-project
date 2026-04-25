@@ -53,9 +53,7 @@
               };
             };
 
-            environment.systemPackages = [
-              pkgs.nodejs_24
-            ];
+            environment.systemPackages = [ pkgs.nodejs_24 ];
 
             users.users.dev = {
               isNormalUser = true;
