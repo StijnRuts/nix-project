@@ -15,7 +15,7 @@ let
 
   name = containername "myproject" "development";
   flake = "dev";
-  hostPath = "./frontend/src/";
+  hostPath = "./frontend";
   containerPath = "/srv/frontend";
 in
 { lib, ... }:
@@ -49,7 +49,10 @@ in
             ];
             is_daemon = true;
             readiness_probe.exec.command = "${containerBin} status ${name}";
-            shutdown.command = "${containerBin} down ${name}";
+            shutdown.command = builtins.concatStringsSep " && " [
+              "${containerBin} down ${name}"
+              "${containerBin} umount ${name} ${containerPath}"
+            ];
           };
 
           update = {

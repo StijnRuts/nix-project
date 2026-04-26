@@ -55,10 +55,20 @@ cmd_mount() {
   local host_path="$2"
   local container_path="$3"
   local root="/var/lib/nixos-containers/$name"
+  local userid; userid=$(stat -c "%u" "$host_path")
 
   echo "Mounting $host_path → $container_path"
   sudo mkdir -p "$root/$container_path"
-  sudo mount --bind "$host_path" "$root/$container_path"
+  sudo mount --map-users "$userid:2000:1" --map-groups 0:0:65535 --bind "$host_path" "$root/$container_path"
+}
+
+cmd_umount() {
+  local name="$1"
+  local container_path="$2"
+  local root="/var/lib/nixos-containers/$name"
+
+  echo "Unmounting $container_path"
+  sudo umount "$root/$container_path"
 }
 
 usage() {
@@ -71,6 +81,7 @@ Usage:
   container status <name>
   container shell  <name>
   container mount  <name> <host_path> <container_path>
+  container umount <name> <container_path>
 
 Description:
   build    Create or update a container
@@ -80,17 +91,25 @@ Description:
   status   Print container status; exit 0 if up, 1 otherwise
   shell    Launch a root shell into the container
   mount    Bind-mount a host directory into the container
+  umount   Unmount a host directory from the container
 EOF
 }
 
 case "$cmd" in
   build)  cmd_build ;;
+  create) cmd_build ;;
+  update) cmd_build ;;
   watch)  cmd_watch ;;
   up)     cmd_up ;;
+  start)  cmd_up ;;
   down)   cmd_down ;;
+  stop)   cmd_down ;;
   status) cmd_status ;;
   shell)  cmd_shell ;;
+  login)  cmd_shell ;;
   mount)  cmd_mount "$2" "$3" "$4" ;;
+  umount)  cmd_umount "$2" "$3" ;;
+  unmount)  cmd_umount "$2" "$3" ;;
   ""|-h|--help) usage ;;
   *) echo "Unknown command: $cmd"; usage; exit 1 ;;
 esac
