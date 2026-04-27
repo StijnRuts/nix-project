@@ -33,8 +33,11 @@
         cli.options.no-server = true;
         settings = {
           processes = {
-            date.command = "while true; do date; sleep 1; done";
-            hello.command = "while true; do hello; sleep 3; done";
+            example.command = ''
+              (while true; do date; sleep 1; done) &
+              (while true; do hello; sleep 3; done) &
+              wait
+            '';
           };
         };
       };

@@ -41,11 +41,12 @@ in
         settings.processes = {
           start = {
             namespace = name;
-            description = "Create and start container ${name}";
+            description = "Create container, start, and keep updated ${name}";
             command = builtins.concatStringsSep " && " [
               "${containerBin} build ${name} ${flake}"
               "${containerBin} mount ${name} ${hostPath} ${containerPath}"
               "${containerBin} up ${name}"
+              "${containerBin} watch ${name} ${flake} --live"
             ];
             is_daemon = true;
             readiness_probe.exec.command = "${containerBin} status ${name}";
@@ -53,13 +54,6 @@ in
               "${containerBin} down ${name}"
               "${containerBin} umount ${name} ${containerPath}"
             ];
-          };
-
-          update = {
-            namespace = name;
-            description = "Update ${name} on *.nix changes";
-            command = "${containerBin} watch ${name} ${flake}";
-            depends_on.start.condition = "process_healthy";
           };
 
           shell = {

@@ -4,9 +4,15 @@ set -euo pipefail
 cmd="${1:-}"
 name="${2:-}"
 flake="${3:-}"
+arg="${4:-}"
 
 container_exists() {
   nixos-container status "$name" >/dev/null 2>&1
+}
+
+container_up() {
+  status=$(nixos-container status "$name")
+  [[ "$status" = "up" ]]
 }
 
 cmd_build() {
@@ -21,7 +27,12 @@ cmd_build() {
 
 cmd_watch() {
   echo "Watching for changes to .nix files..."
-  watchexec --postpone --exts nix -- "$0" build "$name" "$flake"
+  watchexec --postpone --exts nix -- "$0" build "$name" "$flake" &
+  pid=$!
+  while (container_up || [[ "$arg" != "--live" ]]); do
+    sleep 5
+  done
+  kill "$pid"
 }
 
 cmd_up() {
@@ -75,7 +86,7 @@ usage() {
   cat <<EOF
 Usage:
   container build  <name> <flake>
-  container watch  <name> <flake>
+  container watch  <name> <flake> [--live]
   container up     <name>
   container down   <name>
   container status <name>
@@ -86,6 +97,7 @@ Usage:
 Description:
   build    Create or update a container
   watch    Watch for .nix changes and auto-update the container
+   --live  Watch for changes while the container is up
   up       Start a container
   down     Stop a container
   status   Print container status; exit 0 if up, 1 otherwise
@@ -96,21 +108,14 @@ EOF
 }
 
 case "$cmd" in
-  build)  cmd_build ;;
-  create) cmd_build ;;
-  update) cmd_build ;;
-  watch)  cmd_watch ;;
-  up)     cmd_up ;;
-  start)  cmd_up ;;
-  down)   cmd_down ;;
-  stop)   cmd_down ;;
+  build | create | update) cmd_build ;;
+  watch) cmd_watch ;;
+  up | start | run) cmd_up ;;
+  down | stop) cmd_down ;;
   status) cmd_status ;;
-  shell)  cmd_shell ;;
-  login)  cmd_shell ;;
-  mount)  cmd_mount "$2" "$3" "$4" ;;
-  umount)  cmd_umount "$2" "$3" ;;
-  unmount)  cmd_umount "$2" "$3" ;;
+  shell | login) cmd_shell ;;
+  mount) cmd_mount "$2" "$3" "$4" ;;
+  umount | unmount) cmd_umount "$2" "$3" ;;
   ""|-h|--help) usage ;;
   *) echo "Unknown command: $cmd"; usage; exit 1 ;;
 esac
-
